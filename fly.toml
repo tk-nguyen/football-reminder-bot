@@ -1,0 +1,14 @@
+# fly.toml app configuration file generated for football-reminder-bot on 2023-12-27T01:21:39+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "football-reminder-bot"
+primary_region = "sin"
+
+[build]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
