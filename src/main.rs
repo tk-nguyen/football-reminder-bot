@@ -1,4 +1,5 @@
-use models::Match;
+use crate::models::Match;
+use crate::utils::get_today_matches;
 use std::{collections::HashMap, env, sync::Arc};
 
 use dotenvy::dotenv;
@@ -17,25 +18,29 @@ mod commands;
 mod models;
 mod utils;
 
-type Context<'a> = poise::Context<'a, Data, Error>;
+type Context<'a> = poise::Context<'a, Arc<Data>, Error>;
 
-#[derive(Clone)]
 struct Data {
     http_client: Client,
-    matches: Arc<RwLock<HashMap<String, Vec<Match>>>>,
+    // We only write new data occasionally,
+    // but read is frequent so RwLock is used
+    matches: RwLock<HashMap<String, Vec<Match>>>,
 } // User data, which is stored and accessible in all command invocations
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Loading from .env file for tokens
+    // If not, use env vars DISCORD_TOKEN and FOOTBALL_DATA_TOKEN
     if let Err(_) = dotenv() {
         info!(".env file not found. Using environment variables.");
     }
-
+    // Default log verbosity is info
     if let Err(_) = env::var("RUST_LOG") {
         env::set_var("RUST_LOG", "info")
     }
     // install global collector configured based on RUST_LOG env var.
     tracing_subscriber::fmt::init();
+
     info!("Initializing the bot...");
 
     let discord_token = env::var("DISCORD_TOKEN").expect("Missing Discord token!");
@@ -51,14 +56,18 @@ async fn main() -> Result<()> {
         .default_headers(headers)
         .build()
         .into_diagnostic()?;
-    let matches = Arc::new(RwLock::new(HashMap::<String, Vec<Match>>::new()));
-    let data = Data {
+    let matches = RwLock::new(HashMap::<String, Vec<Match>>::new());
+    let data = Arc::new(Data {
         http_client,
         matches,
-    };
+    });
 
-    let _ = tokio::spawn(utils::get_today_matches(data.clone()));
+    // We spawn the poll task on another thread to not block
+    tokio::spawn(get_today_matches(data.clone()));
 
+    // We support both slash commands and prefix commands so MESSAGE_INTENT privilege is needed
+    // Make sure you enable the Message Content Intent in your Bot settings
+    // See https://discordpy.readthedocs.io/en/latest/intents.html#privileged-intents for more details
     let intents = serenity::GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
     let options = FrameworkOptions {
         commands: vec![commands::help(), commands::matches(), commands::leagues()],
@@ -68,7 +77,10 @@ async fn main() -> Result<()> {
         },
         ..Default::default()
     };
+
     info!("Initialization complete! Starting the bot...");
+
+    // Finally, we run the bot
     Framework::builder()
         .token(discord_token)
         .setup(|ctx, _ready, framework| {

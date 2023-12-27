@@ -1,7 +1,12 @@
 FROM rust:1 AS build
 
-COPY . /app/
+COPY Cargo.toml Cargo.lock /app/
+# Have to do this so cargo wont complain
 WORKDIR /app
+RUN mkdir src && echo "fn main() { return; }" > src/main.rs
+RUN cargo fetch
+
+COPY src src/
 RUN cargo build --release
 
 FROM gcr.io/distroless/cc-debian12

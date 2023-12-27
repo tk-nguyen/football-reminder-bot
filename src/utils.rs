@@ -1,10 +1,10 @@
 use crate::Data;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use chrono::Utc;
-use miette::{IntoDiagnostic, Result};
+use chrono::{NaiveDate, Utc};
+use miette::{miette, IntoDiagnostic, Result};
 use phf::{phf_map, Map};
-use tokio::time::sleep;
+use tokio::time::interval;
 use tracing::info;
 
 use crate::models::Matches;
@@ -28,36 +28,47 @@ pub(crate) static VALID_LEAGUES: Map<&str, &str> = phf_map! {
     "cli" => "Copa Libertadores",
 };
 
-pub(crate) async fn get_today_matches(data: Data) -> Result<()> {
-    let today = Utc::now().date_naive();
-    info!("Getting today's ({}) matches", today.format("%d/%m/%Y"));
-    for league in VALID_LEAGUES.keys() {
-        let data = data.clone();
-        let league = league.to_uppercase();
-        tokio::spawn(async move {
-            let res = data
-                .http_client
-                .get(format!("{FOOTBALL_DATA_URL}/matches"))
-                .query(&[
-                    ("filter", today.to_string()),
-                    ("competitions", league.to_string()),
-                ])
-                .send()
-                .await
-                .into_diagnostic()
-                .unwrap()
-                .json::<Matches>()
-                .await
-                .into_diagnostic()
-                .unwrap();
-            if res.matches.len() > 0 {
-                data.matches
-                    .write()
-                    .await
-                    .insert(league.to_string().to_lowercase(), res.matches);
-            }
-        });
+pub(crate) async fn get_today_matches(data: Arc<Data>) -> Result<()> {
+    // We poll the endpoint every hour for updated data
+    let mut interval = interval(Duration::from_secs(3600));
+    loop {
+        interval.tick().await;
+        let today = Utc::now().date_naive();
+        info!("Getting today's ({}) matches", today.format("%d/%m/%Y"));
+        // Get the match data from all supported leagues
+        for league in VALID_LEAGUES.keys() {
+            let data = data.clone();
+            let league = league.to_uppercase();
+            tokio::spawn(get_matches(data, today, league));
+        }
     }
-    sleep(Duration::from_secs(86400)).await;
-    Ok(())
+}
+
+pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: String) -> Result<()> {
+    match data
+        .http_client
+        .get(format!("{FOOTBALL_DATA_URL}/matches"))
+        .query(&[
+            ("filter", today.to_string()),
+            ("competitions", league.to_string()),
+        ])
+        .send()
+        .await
+    {
+        Ok(res) => match res.error_for_status() {
+            Ok(body) => {
+                let res = body.json::<Matches>().await.into_diagnostic()?;
+                if res.matches.len() > 0 {
+                    // We store the matches in a hashmap for caching
+                    data.matches
+                        .write()
+                        .await
+                        .insert(league.to_string().to_lowercase(), res.matches);
+                };
+                Ok(())
+            }
+            Err(e) => Err(miette!("Error from the server: {e}")),
+        },
+        Err(e) => Err(miette!("Error sending request to the server: {e}")),
+    }
 }
