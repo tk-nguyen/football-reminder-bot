@@ -3,7 +3,7 @@ FROM rust:1 AS build
 COPY Cargo.toml Cargo.lock /app/
 # Have to do this so cargo wont complain
 WORKDIR /app
-RUN mkdir src && echo "fn main() { return; }" > src/main.rs
+RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo fetch
 
 COPY src src/
