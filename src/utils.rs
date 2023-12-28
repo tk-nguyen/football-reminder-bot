@@ -58,13 +58,10 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
         Ok(res) => match res.error_for_status() {
             Ok(body) => {
                 let res = body.json::<Matches>().await.into_diagnostic()?;
-                if res.matches.len() > 0 {
-                    // We store the matches in a hashmap for caching
-                    data.matches
-                        .write()
-                        .await
-                        .insert(league.to_string().to_lowercase(), res.matches);
-                };
+                data.matches
+                    .write()
+                    .await
+                    .insert(league.to_string().to_lowercase(), res.matches);
                 Ok(())
             }
             Err(e) => Err(miette!("Error from the server: {e}")),

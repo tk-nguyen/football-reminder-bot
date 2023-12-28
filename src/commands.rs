@@ -34,7 +34,7 @@ pub async fn matches(ctx: Context<'_>, #[description = "League ID"] league: Stri
             Some(matches) => {
                 let mut embed = CreateEmbed::default();
                 // There are definitely matches and valid leagues, so it's OK to unwrap here.
-                embed.title(VALID_LEAGUES.get(&league).unwrap());
+                embed.title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
                 if let Some(url) = &matches.get(0).unwrap().competition.emblem {
                     embed.thumbnail(url);
                 }
