@@ -64,7 +64,12 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
                         .write()
                         .await
                         .insert(league.to_string().to_lowercase(), res.matches);
-                };
+                } else {
+                    data.matches
+                        .write()
+                        .await
+                        .remove(&league.to_string().to_lowercase());
+                }
                 Ok(())
             }
             Err(e) => Err(miette!("Error from the server: {e}")),

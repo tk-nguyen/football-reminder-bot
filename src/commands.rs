@@ -81,7 +81,7 @@ pub async fn matches(ctx: Context<'_>, #[description = "League ID"] league: Stri
             None => ctx
                 .send(|rep| {
                     rep.embed(|em| {
-                        em.title(VALID_LEAGUES.get(&league).unwrap());
+                        em.title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
                         em.field("", "No matches are scheduled for today", false);
                         em.colour(Colour::RED)
                     })
