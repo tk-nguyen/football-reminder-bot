@@ -14,7 +14,7 @@ pub struct Match {
     pub id: usize,
     pub utc_date: DateTime<Utc>,
     pub status: String,
-    pub matchday: usize,
+    pub matchday: Option<usize>,
     pub stage: String,
     pub group: Option<String>,
     pub last_updated: DateTime<Utc>,
