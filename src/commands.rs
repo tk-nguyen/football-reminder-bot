@@ -121,3 +121,13 @@ pub async fn leagues(ctx: Context<'_>) -> Result<()> {
 
     Ok(())
 }
+
+/// Return latency from the bot to Discord
+#[poise::command(prefix_command, track_edits, slash_command)]
+pub async fn ping(ctx: Context<'_>) -> Result<()> {
+    let ping = ctx.ping().await.as_millis();
+    ctx.send(|rep| rep.content(format!("Pong! {} ms", ping)))
+        .await
+        .into_diagnostic()?;
+    Ok(())
+}

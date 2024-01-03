@@ -70,7 +70,12 @@ async fn main() -> Result<()> {
     // See https://discordpy.readthedocs.io/en/latest/intents.html#privileged-intents for more details
     let intents = serenity::GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
     let options = FrameworkOptions {
-        commands: vec![commands::help(), commands::matches(), commands::leagues()],
+        commands: vec![
+            commands::help(),
+            commands::matches(),
+            commands::leagues(),
+            commands::ping(),
+        ],
         prefix_options: PrefixFrameworkOptions {
             prefix: Some("=".into()),
             ..Default::default()
