@@ -1,5 +1,5 @@
 use crate::models::Match;
-use crate::utils::get_today_matches;
+use crate::utils::get_week_matches;
 use std::{collections::HashMap, env, sync::Arc};
 
 use dotenvy::dotenv;
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
     if let Err(_) = env::var("RUST_LOG") {
         env::set_var("RUST_LOG", "info")
     }
-    // install global collector configured based on RUST_LOG env var.
+    // Install global collector configured based on RUST_LOG env var.
     tracing_subscriber::fmt::init();
 
     info!("Initializing the bot...");
@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
     });
 
     // We spawn the poll task on another thread to not block
-    tokio::spawn(get_today_matches(data.clone()));
+    tokio::spawn(get_week_matches(data.clone()));
 
     // We support both slash commands and prefix commands so MESSAGE_INTENT privilege is needed
     // Make sure you enable the Message Content Intent in your Bot settings

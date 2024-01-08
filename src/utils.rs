@@ -1,9 +1,10 @@
-use crate::Data;
+use crate::{Context, Data};
 use std::{sync::Arc, time::Duration};
 
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use miette::{miette, IntoDiagnostic, Result};
 use phf::{phf_map, Map};
+use poise::AutocompleteChoice;
 use tokio::time::interval;
 use tracing::info;
 
@@ -18,7 +19,7 @@ pub(crate) static VALID_LEAGUES: Map<&str, &str> = phf_map! {
     "bl1" => "Bundesliga",
     "ded" => "Eredivisie",
     "bsa" => "Campeonato Brasileiro Séria A",
-    "pd" => "Primera Division",
+    "pd" => "Primera Division (La Liga)",
     "fl1" => "Ligue 1",
     "elc" => "Championship",
     "ppl" => "Primeira Liga",
@@ -28,13 +29,12 @@ pub(crate) static VALID_LEAGUES: Map<&str, &str> = phf_map! {
     "cli" => "Copa Libertadores",
 };
 
-pub(crate) async fn get_today_matches(data: Arc<Data>) -> Result<()> {
+pub(crate) async fn get_week_matches(data: Arc<Data>) -> Result<()> {
     // We poll the endpoint every hour for updated data
     let mut interval = interval(Duration::from_secs(3600));
     loop {
         interval.tick().await;
         let today = Utc::now().date_naive();
-        info!("Getting today's ({}) matches", today.format("%d/%m/%Y"));
         // Get the match data from all supported leagues
         for league in VALID_LEAGUES.keys() {
             let data = data.clone();
@@ -45,12 +45,25 @@ pub(crate) async fn get_today_matches(data: Arc<Data>) -> Result<()> {
 }
 
 pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: String) -> Result<()> {
+    // We count day of week number from 0 for easier math,
+    // starting from Monday
+    let dow_num = today.weekday().num_days_from_monday().into();
+    let monday = today - chrono::Duration::days(dow_num);
+    let sunday = today + (chrono::Duration::days(6 - dow_num));
+    info!(
+        "Getting this week's ({} - {}) matches for league {}",
+        monday.format("%d/%m/%Y"),
+        sunday.format("%d/%m/%Y"),
+        league
+    );
     match data
         .http_client
         .get(format!("{FOOTBALL_DATA_URL}/matches"))
         .query(&[
             ("filter", today.to_string()),
             ("competitions", league.to_string()),
+            ("dateFrom", monday.to_string()),
+            ("dateTo", sunday.to_string()),
         ])
         .send()
         .await
@@ -76,4 +89,17 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
         },
         Err(e) => Err(miette!("Error sending request to the server: {e}")),
     }
+}
+
+pub(crate) async fn autocomplete_league_name<'a>(
+    _: Context<'_>,
+    input: &'a str,
+) -> impl Iterator<Item = AutocompleteChoice<String>> + 'a {
+    VALID_LEAGUES
+        .keys()
+        .filter(move |l| l.contains(input))
+        .map(|l| AutocompleteChoice {
+            name: format!("{} - {}", l.to_string(), VALID_LEAGUES.get(l).unwrap()),
+            value: l.to_string(),
+        })
 }

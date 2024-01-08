@@ -1,5 +1,5 @@
 use crate::{
-    utils::{FOOTBALL_DATA_ICON, VALID_LEAGUES},
+    utils::{autocomplete_league_name, FOOTBALL_DATA_ICON, VALID_LEAGUES},
     Context,
 };
 use chrono::FixedOffset;
@@ -13,7 +13,7 @@ pub async fn help(ctx: Context<'_>) -> Result<()> {
         ctx,
         None,
         poise::builtins::HelpConfiguration {
-            extra_text_at_bottom: "This is a bot to post today's football matches. Data is from https://www.football-data.org",
+            extra_text_at_bottom: "This is a bot to post current week's football matches. Data is from https://www.football-data.org",
             ephemeral: true,
             ..Default::default()
         },
@@ -21,9 +21,14 @@ pub async fn help(ctx: Context<'_>) -> Result<()> {
     .await.into_diagnostic()
 }
 
-/// Find today's matches
+/// Find current week's matches
 #[poise::command(prefix_command, track_edits, slash_command)]
-pub async fn matches(ctx: Context<'_>, #[description = "League ID"] league: String) -> Result<()> {
+pub async fn matches(
+    ctx: Context<'_>,
+    #[description = "League ID"]
+    #[autocomplete = "autocomplete_league_name"]
+    league: String,
+) -> Result<()> {
     // By default, Discord timeout for slash command response is 3s
     // This makes the timeout 15 minutes
     ctx.defer().await.into_diagnostic()?;
@@ -90,7 +95,7 @@ pub async fn matches(ctx: Context<'_>, #[description = "League ID"] league: Stri
                 .send(|rep| {
                     rep.embed(|em| {
                         em.title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
-                        em.field("", "No matches are scheduled for today", false);
+                        em.field("", "No matches are scheduled for this week", false);
                         em.colour(Colour::RED)
                     })
                 })
@@ -113,7 +118,8 @@ pub async fn leagues(ctx: Context<'_>) -> Result<()> {
             for (id, name) in &VALID_LEAGUES {
                 em.field(id, name, true);
             }
-            em.colour(Colour::BLURPLE)
+            em.colour(Colour::BLURPLE);
+            em.description("Use the short league name to query matches, for example: `/matches pl` for Premier League, `/matches sa` for Serie A, ...")
         })
     })
     .await
