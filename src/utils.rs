@@ -48,12 +48,12 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
     // We count day of week number from 0 for easier math,
     // starting from Monday
     let dow_num = today.weekday().num_days_from_monday().into();
-    let monday = today - chrono::Duration::days(dow_num);
-    let sunday = today + (chrono::Duration::days(6 - dow_num));
+    let this_monday = today - chrono::Duration::days(dow_num);
+    let next_monday = this_monday + chrono::Duration::weeks(1);
     info!(
         "Getting this week's ({} - {}) matches for league {}",
-        monday.format("%d/%m/%Y"),
-        sunday.format("%d/%m/%Y"),
+        this_monday.format("%d/%m/%Y"),
+        next_monday.format("%d/%m/%Y"),
         league
     );
     match data
@@ -62,8 +62,8 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
         .query(&[
             ("filter", today.to_string()),
             ("competitions", league.to_string()),
-            ("dateFrom", monday.to_string()),
-            ("dateTo", sunday.to_string()),
+            ("dateFrom", this_monday.to_string()),
+            ("dateTo", next_monday.to_string()),
         ])
         .send()
         .await
