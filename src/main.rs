@@ -6,7 +6,7 @@ use dotenvy::dotenv;
 use miette::{Error, IntoDiagnostic, Result};
 use poise::{
     samples::register_globally,
-    serenity_prelude::{self as serenity, GatewayIntents},
+    serenity_prelude::{self as serenity, Activity, GatewayIntents},
     Framework, FrameworkOptions, PrefixFrameworkOptions,
 };
 use reqwest::{header, Client};
@@ -86,10 +86,12 @@ async fn main() -> Result<()> {
     info!("Initialization complete! Starting the bot...");
 
     // Finally, we run the bot
-    Framework::builder()
+    let framework = Framework::builder()
         .token(discord_token)
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
+                ctx.set_activity(Activity::playing("football matches | /help"))
+                    .await;
                 register_globally(ctx, &framework.options().commands)
                     .await
                     .into_diagnostic()?;
@@ -98,7 +100,8 @@ async fn main() -> Result<()> {
         })
         .options(options)
         .intents(intents)
-        .run()
+        .build()
         .await
-        .into_diagnostic()
+        .into_diagnostic()?;
+    framework.start_autosharded().await.into_diagnostic()
 }
