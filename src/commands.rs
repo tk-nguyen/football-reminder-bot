@@ -51,7 +51,15 @@ pub async fn matches(
                 if let Some(url) = &matches.get(0).unwrap().competition.emblem {
                     embed.thumbnail(url);
                 }
-                for (idx, m) in matches.iter().enumerate() {
+                for (idx, m) in matches
+                    .iter()
+                    .filter(|m| match matches.get(0).unwrap().matchday {
+                        // Only get matches from a same matchday
+                        Some(day) => m.matchday == Some(day),
+                        None => true,
+                    })
+                    .enumerate()
+                {
                     let (home, away) = match (m.score.half_time.home, m.score.full_time.home) {
                         (Some(_), None) => (
                             m.score.half_time.home.unwrap(),
