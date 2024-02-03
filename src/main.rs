@@ -6,7 +6,7 @@ use miette::{Error, IntoDiagnostic, Result};
 use models::Match;
 use poise::{
     samples::register_globally,
-    serenity_prelude::{self as serenity, Activity, GatewayIntents},
+    serenity_prelude::{self as serenity, ActivityData, GatewayIntents},
     Framework, FrameworkOptions, PrefixFrameworkOptions,
 };
 use reqwest::{header, Client};
@@ -88,11 +88,11 @@ async fn main() -> Result<()> {
 
     // Finally, we run the bot
     let framework = Framework::builder()
-        .token(discord_token)
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                ctx.set_activity(Activity::playing("football matches | /help"))
-                    .await;
+                ctx.set_activity(Some(ActivityData::playing(
+                    "football matches | /help | =help",
+                )));
                 register_globally(ctx, &framework.options().commands)
                     .await
                     .into_diagnostic()?;
@@ -100,10 +100,11 @@ async fn main() -> Result<()> {
             })
         })
         .options(options)
-        .intents(intents)
-        .build()
+        .build();
+    let mut client = serenity::Client::builder(discord_token, intents)
+        .framework(framework)
         .await
         .into_diagnostic()?;
 
-    framework.start_autosharded().await.into_diagnostic()
+    client.start_autosharded().await.into_diagnostic()
 }

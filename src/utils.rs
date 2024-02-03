@@ -1,10 +1,10 @@
 use crate::{Context, Data};
-use std::{cmp::Reverse, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use chrono::{Datelike, NaiveDate, Utc};
 use miette::{miette, IntoDiagnostic, Result};
 use phf::{phf_map, Map};
-use poise::AutocompleteChoice;
+use poise::serenity_prelude::AutocompleteChoice;
 use tokio::time::interval;
 use tracing::info;
 
@@ -70,10 +70,8 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
     {
         Ok(res) => match res.error_for_status() {
             Ok(body) => {
-                let mut res = body.json::<Matches>().await.into_diagnostic()?;
+                let res = body.json::<Matches>().await.into_diagnostic()?;
                 if res.matches.len() > 0 {
-                    // Sort the matches by latest
-                    res.matches.sort_unstable_by_key(|m| Reverse(m.utc_date));
                     // We store the matches in a hashmap for caching
                     data.matches
                         .write()
@@ -96,12 +94,14 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
 pub(crate) async fn autocomplete_league_name<'a>(
     _: Context<'_>,
     input: &'a str,
-) -> impl Iterator<Item = AutocompleteChoice<String>> + 'a {
+) -> impl Iterator<Item = AutocompleteChoice> + 'a {
     VALID_LEAGUES
         .keys()
         .filter(move |l| l.contains(input))
-        .map(|l| AutocompleteChoice {
-            name: format!("{} - {}", l.to_string(), VALID_LEAGUES.get(l).unwrap()),
-            value: l.to_string(),
+        .map(|l| {
+            AutocompleteChoice::new(
+                format!("{} - {}", l.to_string(), VALID_LEAGUES.get(l).unwrap()),
+                l.to_string(),
+            )
         })
 }

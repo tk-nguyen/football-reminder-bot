@@ -4,7 +4,10 @@ use crate::{
 };
 use chrono::FixedOffset;
 use miette::{IntoDiagnostic, Result};
-use poise::serenity_prelude::{Colour, CreateEmbed};
+use poise::{
+    serenity_prelude::{Colour, CreateEmbed, CreateEmbedFooter},
+    CreateReply,
+};
 
 /// Show help about the bot
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -37,101 +40,83 @@ pub async fn matches(
     if VALID_LEAGUES.contains_key(&league) {
         match ctx.data().matches.read().await.get(&league) {
             Some(matches) => {
-                let mut embed = CreateEmbed::default();
-                // There are definitely matches and valid leagues, so it's OK to unwrap here.
-                if let Some(round) = matches.get(0).unwrap().matchday {
-                    embed.title(format!(
-                        "**{} - Round {}**",
-                        VALID_LEAGUES.get(&league).unwrap(),
-                        round
-                    ));
-                } else {
-                    embed.title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
-                }
+                let mut embed = CreateEmbed::default()
+                    .footer(
+                        CreateEmbedFooter::new("Data from https://www.football-data.org")
+                            .icon_url(FOOTBALL_DATA_ICON),
+                    )
+                    .colour(Colour::BLURPLE)
+                    .title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
                 if let Some(url) = &matches.get(0).unwrap().competition.emblem {
-                    embed.thumbnail(url);
+                    embed = embed.thumbnail(url.to_string());
                 }
-                let mut current_matchday_matches = matches
-                    .iter()
-                    .filter(|m| match matches.get(0).unwrap().matchday {
-                        // Only get matches from a same matchday
-                        Some(day) => m.matchday == Some(day),
-                        None => true,
-                    })
-                    .collect::<Vec<_>>();
-                // Reverse the order so coming up matches are first
-                current_matchday_matches.reverse();
-                for (idx, m) in current_matchday_matches.iter().enumerate() {
-                    let (home, away) = match (m.score.half_time.home, m.score.full_time.home) {
-                        (Some(_), None) => (
-                            m.score.half_time.home.unwrap(),
-                            m.score.half_time.away.unwrap(),
-                        ),
-                        (None, None) => (0, 0),
-                        (_, Some(_)) => (
-                            m.score.full_time.home.unwrap(),
-                            m.score.full_time.away.unwrap(),
-                        ),
-                    };
-                    embed.field(
-                        format!("Match {}", idx + 1),
-                        format!(
-                            "**{} {} - {} {}** ({})",
-                            m.home_team.short_name,
-                            home,
-                            away,
-                            m.away_team.short_name,
-                            m.utc_date
-                                .with_timezone(&FixedOffset::east_opt(7 * 3600).unwrap())
-                                .format("%d/%m/%Y %R %Z")
-                        ),
-                        false,
-                    );
-                }
-                embed.footer(|f| {
-                    f.icon_url(FOOTBALL_DATA_ICON);
-                    f.text("Data from https://www.football-data.org");
-                    f
-                });
-                embed.colour(Colour::BLURPLE);
-                ctx.send(|rep| {
-                    rep.embeds.push(embed);
-                    rep
-                })
-                .await
-                .into_diagnostic()?
+                embed = embed
+                    .clone()
+                    .fields(matches.iter().enumerate().map(|(idx, m)| {
+                        let (home, away) = match (m.score.half_time.home, m.score.full_time.home) {
+                            (Some(_), None) => (
+                                m.score.half_time.home.unwrap(),
+                                m.score.half_time.away.unwrap(),
+                            ),
+                            (None, None) => (0, 0),
+                            (_, Some(_)) => (
+                                m.score.full_time.home.unwrap(),
+                                m.score.full_time.away.unwrap(),
+                            ),
+                        };
+                        (
+                            match m.matchday {
+                                Some(round) => format!("Match {} - Round {}", idx + 1, round),
+                                None => format!("Match {}", idx + 1),
+                            },
+                            format!(
+                                "**{} {} - {} {}** ({})",
+                                m.home_team.short_name,
+                                home,
+                                away,
+                                m.away_team.short_name,
+                                m.utc_date
+                                    .with_timezone(&FixedOffset::east_opt(7 * 3600).unwrap())
+                                    .format("%d/%m/%Y %R %Z")
+                            ),
+                            false,
+                        )
+                    }));
+                ctx.send(CreateReply::default().embed(embed))
+                    .await
+                    .into_diagnostic()?
             }
             None => ctx
-                .send(|rep| {
-                    rep.embed(|em| {
-                        em.title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
-                        em.field("", "No matches are scheduled for this week", false);
-                        em.colour(Colour::RED)
-                    })
-                })
+                .send(
+                    CreateReply::default().embed(
+                        CreateEmbed::default()
+                            .title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()))
+                            .field("", "No matches are scheduled for this week", false)
+                            .colour(Colour::RED),
+                    ),
+                )
                 .await
                 .into_diagnostic()?,
         };
     } else {
-        ctx.send(|rep| rep.content("Invalid league ID. For a list of valid leagues, use /leagues"))
-            .await
-            .into_diagnostic()?;
+        ctx.send(
+            CreateReply::default()
+                .content("Invalid league ID. For a list of valid leagues, use /leagues"),
+        )
+        .await
+        .into_diagnostic()?;
     }
     Ok(())
 }
 /// List all valid leagues
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn leagues(ctx: Context<'_>) -> Result<()> {
-    ctx.send(|rep| {
-        rep.embed(|em| {
-            em.title("**Leagues**");
-            for (id, name) in &VALID_LEAGUES {
-                em.field(id, name, true);
-            }
-            em.colour(Colour::BLURPLE);
-            em.description("Use the short league name to query matches, for example: `/matches pl` for Premier League, `/matches sa` for Serie A, ...")
-        })
-    })
+    ctx.send(CreateReply::default().embed(CreateEmbed::default()
+            .title("**Leagues**")
+            .colour(Colour::BLURPLE)
+            .description("Use the short league name to query matches, for example: `/matches pl` for Premier League, `/matches sa` for Serie A, ...")
+            .fields(VALID_LEAGUES.into_iter().map(|(&id, &name)| (id, name, false)) )
+        ))
     .await
     .into_diagnostic()?;
 
@@ -142,7 +127,7 @@ pub async fn leagues(ctx: Context<'_>) -> Result<()> {
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn ping(ctx: Context<'_>) -> Result<()> {
     let ping = ctx.ping().await.as_millis();
-    ctx.send(|rep| rep.content(format!("Pong! {} ms", ping)))
+    ctx.say(format!("**Pong! {} ms**", ping))
         .await
         .into_diagnostic()?;
     Ok(())
