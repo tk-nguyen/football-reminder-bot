@@ -1,5 +1,5 @@
 use crate::{Context, Data};
-use std::{sync::Arc, time::Duration};
+use std::{cmp::Reverse, sync::Arc, time::Duration};
 
 use chrono::{Datelike, NaiveDate, Utc};
 use miette::{miette, IntoDiagnostic, Result};
@@ -70,8 +70,10 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
     {
         Ok(res) => match res.error_for_status() {
             Ok(body) => {
-                let res = body.json::<Matches>().await.into_diagnostic()?;
+                let mut res = body.json::<Matches>().await.into_diagnostic()?;
                 if res.matches.len() > 0 {
+                    // Sort the matches by latest
+                    res.matches.sort_unstable_by_key(|m| Reverse(m.utc_date));
                     // We store the matches in a hashmap for caching
                     data.matches
                         .write()

@@ -1,9 +1,9 @@
-use crate::models::Match;
 use crate::utils::get_week_matches;
 use std::{collections::HashMap, env, sync::Arc};
 
 use dotenvy::dotenv;
 use miette::{Error, IntoDiagnostic, Result};
+use models::Match;
 use poise::{
     samples::register_globally,
     serenity_prelude::{self as serenity, Activity, GatewayIntents},
@@ -20,6 +20,7 @@ mod utils;
 
 type Context<'a> = poise::Context<'a, Arc<Data>, Error>;
 
+#[derive(Debug)]
 struct Data {
     http_client: Client,
     // We only write new data occasionally,
@@ -103,5 +104,6 @@ async fn main() -> Result<()> {
         .build()
         .await
         .into_diagnostic()?;
+
     framework.start_autosharded().await.into_diagnostic()
 }
