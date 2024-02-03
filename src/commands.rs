@@ -40,18 +40,13 @@ pub async fn matches(
     if VALID_LEAGUES.contains_key(&league) {
         match ctx.data().matches.read().await.get(&league) {
             Some(matches) => {
-                let mut embed = CreateEmbed::default()
+                let embed = CreateEmbed::default()
                     .footer(
                         CreateEmbedFooter::new("Data from https://www.football-data.org")
                             .icon_url(FOOTBALL_DATA_ICON),
                     )
                     .colour(Colour::BLURPLE)
-                    .title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()));
-                if let Some(url) = &matches.get(0).unwrap().competition.emblem {
-                    embed = embed.thumbnail(url.to_string());
-                }
-                embed = embed
-                    .clone()
+                    .title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()))
                     .fields(matches.iter().enumerate().map(|(idx, m)| {
                         let (home, away) = match (m.score.half_time.home, m.score.full_time.home) {
                             (Some(_), None) => (
@@ -81,7 +76,11 @@ pub async fn matches(
                             ),
                             false,
                         )
-                    }));
+                    }))
+                    .thumbnail(match &matches.get(0).unwrap().competition.emblem {
+                        Some(url) => url.to_string(),
+                        None => "".to_string(),
+                    });
                 ctx.send(CreateReply::default().embed(embed))
                     .await
                     .into_diagnostic()?
