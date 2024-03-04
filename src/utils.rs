@@ -49,7 +49,7 @@ pub(crate) async fn get_matches(data: Arc<Data>, today: NaiveDate, league: Strin
     // starting from Monday
     let dow_num = today.weekday().num_days_from_monday().into();
     let this_monday = today - chrono::Duration::days(dow_num);
-    let next_monday = this_monday + chrono::Duration::weeks(1);
+    let next_monday = this_monday + chrono::Duration::weeks(1) + chrono::Duration::days(3); // 1.5 week
     info!(
         "Getting this week's ({} - {}) matches for league {}",
         this_monday.format("%d/%m/%Y"),
