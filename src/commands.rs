@@ -47,7 +47,7 @@ pub async fn matches(
                     )
                     .colour(Colour::BLURPLE)
                     .title(format!("**{}**", VALID_LEAGUES.get(&league).unwrap()))
-                    .fields(matches.iter().enumerate().map(|(idx, m)| {
+                    .fields(matches.iter().enumerate().map(|(_, m)| {
                         let (home, away) = match (m.score.half_time.home, m.score.full_time.home) {
                             (Some(_), None) => (
                                 m.score.half_time.home.unwrap(),
@@ -60,10 +60,7 @@ pub async fn matches(
                             ),
                         };
                         (
-                            match m.matchday {
-                                Some(round) => format!("Match {} - Round {}", idx + 1, round),
-                                None => format!("Match {}", idx + 1),
-                            },
+                            "",
                             format!(
                                 "**{} {} - {} {}** ({})",
                                 m.home_team.short_name,
@@ -72,7 +69,7 @@ pub async fn matches(
                                 m.away_team.short_name,
                                 m.utc_date
                                     .with_timezone(&FixedOffset::east_opt(7 * 3600).unwrap())
-                                    .format("%d/%m/%Y %R %Z")
+                                    .format("%a %d/%m/%Y %R")
                             ),
                             false,
                         )
@@ -114,7 +111,7 @@ pub async fn leagues(ctx: Context<'_>) -> Result<()> {
             .title("**Leagues**")
             .colour(Colour::BLURPLE)
             .description("Use the short league name to query matches, for example: `/matches pl` for Premier League, `/matches sa` for Serie A, ...")
-            .fields(VALID_LEAGUES.into_iter().map(|(&id, &name)| (id, name, false)) )
+            .fields(VALID_LEAGUES.into_iter().map(|(&id, &name)| (id, name, true)) )
         ))
     .await
     .into_diagnostic()?;
