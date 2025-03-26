@@ -37,7 +37,9 @@ async fn main() -> Result<()> {
     }
     // Default log verbosity is info
     if let Err(_) = env::var("RUST_LOG") {
-        env::set_var("RUST_LOG", "info")
+        unsafe {
+            env::set_var("RUST_LOG", "info");
+        }
     }
     // Install global collector configured based on RUST_LOG env var.
     tracing_subscriber::fmt::init();
